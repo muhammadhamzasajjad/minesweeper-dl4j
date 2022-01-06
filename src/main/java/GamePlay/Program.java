@@ -5,6 +5,7 @@ import java.util.Scanner;
 
 import org.bytedeco.librealsense.intrinsics;
 import org.deeplearning4j.nn.conf.BackpropType;
+import org.deeplearning4j.nn.conf.ConvolutionMode;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.inputs.InputType;
@@ -12,9 +13,13 @@ import org.deeplearning4j.nn.conf.layers.*;
 import org.deeplearning4j.nn.conf.ocnn.OCNNOutputLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
+import org.jfree.chart.renderer.category.StatisticalBarRenderer;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.api.ops.LossFunction;
+import org.nd4j.linalg.api.ops.impl.layers.convolution.Conv2D;
+import org.nd4j.linalg.api.ops.impl.layers.convolution.Conv2D.Conv2DBuilder;
+import org.nd4j.linalg.api.ops.impl.layers.convolution.config.PaddingMode;
 import org.nd4j.linalg.factory.Nd4j;
 import org.nd4j.linalg.indexing.INDArrayIndex;
 import org.nd4j.linalg.indexing.NDArrayIndex;
@@ -24,7 +29,9 @@ import Game.MinesweeperGame;
 import Game.Pair;
 
 import org.nd4j.linalg.learning.config.Adam;
+import org.nd4j.linalg.learning.config.Sgd;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
+import org.nd4j.nativeblas.Nd4jCpu.conv2d;
 import org.nd4j.nativeblas.Nd4jCpu.static_bidirectional_rnn;
 
 public class Program {
@@ -37,11 +44,12 @@ public class Program {
 	
     static int currentSample = 0;
     static int numSamples = 100;
-    static int epochs = 2;
+    static long movesMade = 0;
+    static int epochs = 4;
     static long playedGames = 0;
     static INDArray features, labels;
     static double[][][][] featuresArray;
-    static double[][] labelsArray;
+    static double[][][][] labelsArray;
     
     static int gamesInSeries = 100;
     
@@ -64,57 +72,70 @@ public class Program {
     }
     
     public static void ConfigNetwork() {
-    	long seed = 123L;
+    	long seed = 1234;
     	
     	/*features = Nd4j.zeros(numSamples, nChannels, boardRows, boardCols); // TO FIX
     	labels = Nd4j.zeros(numSamples, boardRows * boardCols);*/
     	
     	featuresArray = new double[numSamples][nChannels][boardRows][boardCols];
-    	labelsArray = new double[numSamples][boardRows * boardCols];
+    	labelsArray = new double[numSamples][1][boardRows + 4][boardRows + 4];
     	
     	//System.out.println(features.toString());
     	
+    	
     	MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                 .seed(seed)
-                //.l2(0.0005)
+                //.l2(0.0001)
                 .weightInit(WeightInit.XAVIER)
-                //.updater(new Adam(1e-3))
-                .list()
+                //.updater(new Adam(0.01))
+                .updater(new Sgd(0.1))
                 
-                .layer(new ConvolutionLayer.Builder(3, 3).padding(2,2)
+                .list()
+                //.layer(new ZeroPaddingLayer.Builder(5,5)
+                //		.build())
+                .layer(new ConvolutionLayer.Builder(5, 5).convolutionMode(ConvolutionMode.Same)
                         //nIn and nOut specify depth. nIn here is the nChannels and nOut is the number of filters to be applied
-                        .nIn(nChannels)
-                        .nOut(64)
-                        .activation(Activation.RELU)
+                		//.stride(1,1)
+                		.nIn(nChannels)
+                        .nOut(24)
+                        .activation(Activation.SIGMOID)
                         .build())
+                //.layer(new ZeroPaddingLayer.Builder(1,1)
+                //		.build())
+                .layer(new ConvolutionLayer.Builder(5, 5).convolutionMode(ConvolutionMode.Same)
+                        //Note that nIn need not be specified in later layers
+                        .nIn(24)
+                		.nOut(16)
+                        //.stride(1,1)
+                        .activation(Activation.SIGMOID)
+                        .build())
+                //.layer(new ZeroPaddingLayer.Builder(1,1)
+                //		.build())
+                .layer(new ConvolutionLayer.Builder(5, 5).convolutionMode(ConvolutionMode.Same)
+                        //Note that nIn need not be specified in later layers
+                		//.stride(1,1)
+                		.nIn(16)
+                		.nOut(64)
+                        .activation(Activation.SIGMOID)
+                        .build())
+                /*.layer(new ZeroPaddingLayer.Builder(1,1)
+                		.build())
                 .layer(new ConvolutionLayer.Builder(3, 3)
                         //Note that nIn need not be specified in later layers
-                        .nOut(64)
+                		//.stride(1,1)
+                		.nOut(64)
                         .activation(Activation.RELU)
-                        .build())
-                .layer(new ConvolutionLayer.Builder(3, 3).padding(2,2)
-                        //Note that nIn need not be specified in later layers
-                        .nOut(64)
-                        .activation(Activation.RELU)
-                        .build())
-                .layer(new ConvolutionLayer.Builder(3, 3)
-                        //Note that nIn need not be specified in later layers
-                        .nOut(64)
-                        .activation(Activation.RELU)
-                        .build())
+                        .build())*/
                 .layer(new ConvolutionLayer.Builder(1, 1)
                         //Note that nIn need not be specified in later layers
-                        .nOut(1)
-                        .activation(Activation.SIGMOID)
-                        .build())
-                .layer(new DenseLayer.Builder().activation(Activation.SIGMOID)
-                        .nOut(boardRows * boardCols).build())
-                .layer(new OutputLayer.Builder()
-                        .nOut(boardRows * boardCols)
-                        .lossFunction(LossFunctions.LossFunction.MSE)
+                		//.stride(1,1)
+                		.nOut(1)
                         .activation(Activation.SIGMOID)
                         .build())
                 
+                .layer(new CnnLossLayer.Builder(LossFunctions.LossFunction.XENT)
+                		.activation(Activation.SIGMOID)
+                		.build())
                 /*.layer(new DenseLayer.Builder().activation(Activation.SIGMOID)
                         .nOut(boardRows * boardCols).build())
                 .layer(new OutputLayer.Builder(LossFunctions.LossFunction.MSE)
@@ -122,10 +143,12 @@ public class Program {
                         .activation(Activation.SIGMOID)
                         .build())*/
                 .setInputType(InputType.convolutional(boardCols,boardCols,nChannels))
+                .backpropType(BackpropType.Standard)
                 .build();
     	
     	model = new MultiLayerNetwork(conf);
         model.init();
+        
     }
     
     public static void train() {
@@ -147,10 +170,13 @@ public class Program {
         while((status = game.getGameStatus()) == GameStatus.PLAYING) {
         	
         	makeMove(game);
+        	movesMade++;
         }
         
         if(playedGames % gamesInSeries == 0) {
         	System.out.println("played games " + playedGames);
+        	System.out.println("Moves Made " + movesMade);
+        	movesMade = 0;
         }
 
         if(status != GameStatus.PLAYING) {
@@ -174,8 +200,8 @@ public class Program {
     	System.out.println(game.toStringBoardValues());*/
     	
     	encodeState(state, featuresArray[currentSample]);
-    	encodeOutputFlat(minesMatrix, labelsArray[currentSample]);
-    	//labelsArray[currentSample][0] = copyAsDouble(minesMatrix);
+    	//encodeOutputFlat(minesMatrix, labelsArray[currentSample]);
+    	labelsArray[currentSample][0] = copyAsDoubleWithPadding(minesMatrix);
     	double[][][][] inputArray = new double[1][][][];
     	inputArray[0] = featuresArray[currentSample];
     	incrementSampleSize();
@@ -186,8 +212,9 @@ public class Program {
     	/*System.out.println("Output:\n\n" + output.toString());
     	in.nextLine();*/
     	
-    	double[][] outputArray = decodeOutput(output.toDoubleMatrix()[0]);
-    	//double[][] outputArray = output.get(NDArrayIndex.point(0)).get(NDArrayIndex.point(0)).toDoubleMatrix();
+    	//double[][] outputArray = decodeOutput(output.toDoubleMatrix()[0]);
+    	double[][] outputArray = output.get(NDArrayIndex.point(0)).get(NDArrayIndex.point(0)).toDoubleMatrix();
+    	//outputArray = removePadding(outputArray);
     	Pair bestMove = findMinProbabililtyBorder(outputArray, game.getBordersCellsArray());
     	game.unCover(bestMove.getRow(), bestMove.getCol());
     }
@@ -198,11 +225,16 @@ public class Program {
     		features = Nd4j.create(featuresArray);
     		labels = Nd4j.create(labelsArray);
     		
+    		/*System.out.println("input: \n" + features.toString());
+    		System.out.println("output: \n" + labels.toString());
+    		in.nextLine();*/
+    		
     		for (int i = 0; i < epochs; i++) {
     			model.fit(features, labels);
 			}
     		
     		currentSample = 0;
+    		System.gc();
     	}
     }
     
@@ -212,7 +244,7 @@ public class Program {
     	for (Pair cell : borderCells) { 
     		if(probabilityArray[cell.getRow()][cell.getCol()] < minProbability) {
     			minProbability = probabilityArray[cell.getRow()][cell.getCol()];
-    			bestPosition = cell;
+    			bestPosition = new Pair(cell.getRow(), cell.getCol());
     		}
     	}
     	if(bestPosition == null) {
@@ -246,12 +278,23 @@ public class Program {
 		}
     }
     
-    public static double[][] copyAsDouble(int[][] matrix) {
+    public static double[][] copyAsDoubleWithPadding(int[][] matrix) {
     	int rows = matrix.length, cols = matrix[0].length;
     	double[][] dst_matrix = new double[rows][cols];
     	
     	for (int i = 0; i < rows; i++) {
 			for (int j = 0; j < cols; j++) {
+				dst_matrix[i][j] = matrix[i][j];
+			}
+		}
+    	
+    	return dst_matrix;
+    }
+    
+    public static double[][] removePadding(double[][] matrix) {
+    	double[][] dst_matrix = new double[boardRows][boardCols];
+    	for (int i = 0; i < boardRows; i++) {
+			for (int j = 0; j < boardCols; j++) {
 				dst_matrix[i][j] = matrix[i][j];
 			}
 		}

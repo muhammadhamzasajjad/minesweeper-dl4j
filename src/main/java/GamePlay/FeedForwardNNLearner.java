@@ -26,6 +26,7 @@ import java.util.Scanner;
 public class FeedForwardNNLearner {
     final int numInputs = 24;
     int currentSample;
+    int movesMade;
     int numSamples;
     long playedGames;
     INDArray features, labels;
@@ -45,6 +46,7 @@ public class FeedForwardNNLearner {
     public FeedForwardNNLearner() {
         currentSample = 0;
         numSamples = 128;
+        movesMade = 0;
         playedGames = 0;
         features = Nd4j.zeros(numSamples, numInputs);
         labels = Nd4j.zeros(numSamples, 1);
@@ -75,7 +77,7 @@ public class FeedForwardNNLearner {
     public void configNetwork() {
         int seed = 12345;
         int nEpochs = 10;
-        double learningRate = 0.1;
+        double learningRate = 0.2;
         int numOutputs = 1;
 
         //
@@ -99,7 +101,7 @@ public class FeedForwardNNLearner {
                 .layer(new DenseLayer.Builder().nIn(60).nOut(35)
                         .activation(Activation.RELU)
                         .build())
-                .layer(new OutputLayer.Builder(LossFunctions.LossFunction.MSE)
+                .layer(new OutputLayer.Builder(LossFunctions.LossFunction.XENT)
                         .activation(Activation.SIGMOID)
                         .nIn(35).nOut(numOutputs).build())
                 .build();  // 24/70/100/60/35/1
@@ -120,13 +122,14 @@ public class FeedForwardNNLearner {
 
     private void trainGame() {
     	
-    	MinesweeperGame game = new MinesweeperGame(16, 16, 40);
+    	MinesweeperGame game = new MinesweeperGame(9, 9, 10);
         game.loadGame(1, 2);
         GameStatus status;
         
         while((status = game.getGameStatus()) == GameStatus.PLAYING) {
         	
             makeMove(game);
+            movesMade++;
         }
 
         if(status != GameStatus.PLAYING) {
@@ -135,7 +138,8 @@ public class FeedForwardNNLearner {
             
             if(playedGames % 50 == 0) {
             	System.gc();
-                System.out.println("played games: " + playedGames);
+                System.out.println("played games: " + playedGames + " moves Made: " + movesMade);
+                movesMade = 0;
             }
             
             if(playedGames % gamesInSeries == 0) {
