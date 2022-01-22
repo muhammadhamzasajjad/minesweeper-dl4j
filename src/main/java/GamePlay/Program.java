@@ -1,13 +1,19 @@
 package GamePlay;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Scanner;
 
 import org.bytedeco.librealsense.intrinsics;
+import org.deeplearning4j.nn.api.OptimizationAlgorithm;
 import org.deeplearning4j.nn.conf.BackpropType;
 import org.deeplearning4j.nn.conf.ConvolutionMode;
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
 import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
+import org.deeplearning4j.nn.conf.Updater;
 import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.*;
 import org.deeplearning4j.nn.conf.ocnn.OCNNOutputLayer;
@@ -51,8 +57,14 @@ public class Program {
     static double[][][][] featuresArray;
     static double[][][][] labelsArray;
     
-    static int gamesInSeries = 100;
-    
+    //saving data
+    static int gamesInSeries = 500;
+    static int gamesWonInSeries = 0;
+    static long movesInSeries = 0;
+    static long correctMovesInSeries = 0;
+    static long cellsToUnCoverInSeries = 0;
+    static String statsFileName = "stats.txt";
+    static String modelFileName = "model.txt";
     
     static MultiLayerNetwork model;
 
@@ -81,24 +93,24 @@ public class Program {
     	labelsArray = new double[numSamples][1][boardRows + 4][boardRows + 4];
     	
     	//System.out.println(features.toString());
-    	
-    	
     	MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                 .seed(seed)
                 //.l2(0.0001)
                 .weightInit(WeightInit.XAVIER)
-                //.updater(new Adam(0.01))
-                .updater(new Sgd(0.1))
+                .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+                .updater(new Adam(0.0001))
+                //.updater(Updater.ADAM)
+                .activation(Activation.RELU)
                 
                 .list()
                 //.layer(new ZeroPaddingLayer.Builder(5,5)
                 //		.build())
                 .layer(new ConvolutionLayer.Builder(5, 5).convolutionMode(ConvolutionMode.Same)
                         //nIn and nOut specify depth. nIn here is the nChannels and nOut is the number of filters to be applied
-                		//.stride(1,1)
+                		.stride(1,1)
                 		.nIn(nChannels)
                         .nOut(24)
-                        .activation(Activation.SIGMOID)
+                        //.activation(Activation.RELU)
                         .build())
                 //.layer(new ZeroPaddingLayer.Builder(1,1)
                 //		.build())
@@ -106,17 +118,17 @@ public class Program {
                         //Note that nIn need not be specified in later layers
                         .nIn(24)
                 		.nOut(16)
-                        //.stride(1,1)
-                        .activation(Activation.SIGMOID)
+                        .stride(1,1)
+                        //.activation(Activation.SIGMOID)
                         .build())
                 //.layer(new ZeroPaddingLayer.Builder(1,1)
                 //		.build())
                 .layer(new ConvolutionLayer.Builder(5, 5).convolutionMode(ConvolutionMode.Same)
                         //Note that nIn need not be specified in later layers
-                		//.stride(1,1)
+                		.stride(1,1)
                 		.nIn(16)
                 		.nOut(64)
-                        .activation(Activation.SIGMOID)
+                        //.activation(Activation.SIGMOID)
                         .build())
                 /*.layer(new ZeroPaddingLayer.Builder(1,1)
                 		.build())
@@ -128,13 +140,13 @@ public class Program {
                         .build())*/
                 .layer(new ConvolutionLayer.Builder(1, 1)
                         //Note that nIn need not be specified in later layers
-                		//.stride(1,1)
+                		.stride(1,1)
                 		.nOut(1)
-                        .activation(Activation.SIGMOID)
+                        //.activation(Activation.SIGMOID)
                         .build())
                 
-                .layer(new CnnLossLayer.Builder(LossFunctions.LossFunction.XENT)
-                		.activation(Activation.SIGMOID)
+                .layer(new CnnLossLayer.Builder(LossFunctions.LossFunction.MSE)
+                		//.activation(Activation.SIGMOID)
                 		.build())
                 /*.layer(new DenseLayer.Builder().activation(Activation.SIGMOID)
                         .nOut(boardRows * boardCols).build())
@@ -173,7 +185,7 @@ public class Program {
         	movesMade++;
         }
         
-        if(playedGames % gamesInSeries == 0) {
+        if(playedGames % 100 == 0) {
         	System.out.println("played games " + playedGames);
         	System.out.println("Moves Made " + movesMade);
         	movesMade = 0;
@@ -181,11 +193,19 @@ public class Program {
 
         if(status != GameStatus.PLAYING) {
             playedGames++;
+            cellsToUnCoverInSeries += game.getCellsToUncover();
+            
+            if(playedGames % gamesInSeries == 0) {
+            	saveStatsToFile();
+            	
+            	saveModelToFile();
+            }
             
             /*if (status == GameStatus.LOST) {
             System.out.println("You LOST :(");
 	        }
 	        else */if (status == GameStatus.WON) {
+	        	gamesWonInSeries++;
 	            System.out.println("You WON :) played: " + playedGames );
 	            //in.nextLine();
 	        }
@@ -217,6 +237,7 @@ public class Program {
     	//outputArray = removePadding(outputArray);
     	Pair bestMove = findMinProbabililtyBorder(outputArray, game.getBordersCellsArray());
     	game.unCover(bestMove.getRow(), bestMove.getCol());
+    	movesInSeries++;
     }
     
     public static void incrementSampleSize() {
@@ -228,6 +249,7 @@ public class Program {
     		/*System.out.println("input: \n" + features.toString());
     		System.out.println("output: \n" + labels.toString());
     		in.nextLine();*/
+    		
     		
     		for (int i = 0; i < epochs; i++) {
     			model.fit(features, labels);
@@ -344,12 +366,47 @@ public class Program {
     	System.out.println("]");
     }
     
+    
     /*public static double[][] decodeFlatOutputToMineMatrix(INDArray flatOutput) {
     	flatOutput.size(0);
     	for (int i = 0; i < array.length; i++) {
 			
 		}
     }*/
+    
+    
+    private static void saveStatsToFile() {
+    	try {
+			BufferedWriter statsFile = new BufferedWriter(new FileWriter(statsFileName, true));
+			String record = playedGames + ";" + gamesWonInSeries + ";" + movesInSeries + ";" + correctMovesInSeries + ";" + cellsToUnCoverInSeries + ";";
+			statsFile.write(record);
+			statsFile.newLine();
+			statsFile.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	
+    	
+    	// this series is complete
+    	gamesWonInSeries = 0;
+    	movesInSeries = 0;
+        correctMovesInSeries = 0;
+        cellsToUnCoverInSeries = 0;
+    }
+    
+    private static void saveModelToFile() {
+    	//save model
+    	try {
+			model.save(new File(modelFileName), true);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    }
+    
+    
+    
 
     public static void playGameCLI(int numRows, int numCols, int numMines) {
         int row, col;
