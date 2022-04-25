@@ -149,7 +149,7 @@ public class MinesweeperGame {
 
             // the random position must not be starting position (starting position is always safe) and
             // must not already contain a mine
-            if (boardValues[i][j] != MINE && !(i == startX && j == startY) && !isAdjacent(i, j, startX, startY)) {
+            if (boardValues[i][j] != MINE && !(i == startX && j == startY)) { //&& !isAdjacent(i, j, startX, startY)) {
                 boardValues[i][j] = MINE;
                 minePlaced = true;
 

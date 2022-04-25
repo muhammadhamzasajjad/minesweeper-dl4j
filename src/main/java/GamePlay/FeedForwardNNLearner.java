@@ -20,6 +20,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Scanner;
 
@@ -54,7 +55,7 @@ public class FeedForwardNNLearner {
         configNetwork();
         //loadNetworkFromFile();
         
-        gamesInSeries = 2000;
+        gamesInSeries = 1000;
         gamesWonInSeries = 0;
         movesInSeries = 0;
         correctMovesInSeries = 0;
@@ -76,8 +77,8 @@ public class FeedForwardNNLearner {
 
     public void configNetwork() {
         int seed = 12345;
-        int nEpochs = 10;
-        double learningRate = 0.2;
+        int nEpochs = 5;
+        double learningRate = 0.1;
         int numOutputs = 1;
 
         //
@@ -95,20 +96,21 @@ public class FeedForwardNNLearner {
                 .layer(new DenseLayer.Builder().nIn(70).nOut(100)
                         .activation(Activation.RELU)
                         .build())
-                .layer(new DenseLayer.Builder().nIn(100).nOut(60)
+                .layer(new DenseLayer.Builder().nIn(100).nOut(90)
                         .activation(Activation.RELU)
                         .build())
-                .layer(new DenseLayer.Builder().nIn(60).nOut(35)
+                .layer(new DenseLayer.Builder().nIn(90).nOut(45)
                         .activation(Activation.RELU)
                         .build())
                 .layer(new OutputLayer.Builder(LossFunctions.LossFunction.XENT)
                         .activation(Activation.SIGMOID)
-                        .nIn(35).nOut(numOutputs).build())
-                .build();  // 24/70/100/60/35/1
-
+                        .nIn(45).nOut(numOutputs).build())
+                .build();  // 24/70/100/90/45/1
+        
         //run the model
         model = new MultiLayerNetwork(conf);
         model.init();
+        System.out.println(model.summary());
 
     }
 
@@ -136,7 +138,7 @@ public class FeedForwardNNLearner {
             playedGames++;
             cellsToUnCoverInSeries += game.getCellsToUncover();
             
-            if(playedGames % 50 == 0) {
+            if(playedGames % 100 == 0) {
             	System.gc();
                 System.out.println("played games: " + playedGames + " moves Made: " + movesMade);
                 movesMade = 0;
@@ -269,7 +271,7 @@ public class FeedForwardNNLearner {
     private void saveStatsToFile() {
     	try {
 			BufferedWriter statsFile = new BufferedWriter(new FileWriter(statsFileName, true));
-			String record = playedGames + ";" + gamesWonInSeries + ";" + movesInSeries + ";" + correctMovesInSeries + ";" + cellsToUnCoverInSeries + ";";
+			String record = playedGames + ";" + gamesWonInSeries + ";" + movesInSeries + ";" + correctMovesInSeries + ";" + cellsToUnCoverInSeries + ";" + LocalDateTime.now() + ";";
 			statsFile.write(record);
 			statsFile.newLine();
 			statsFile.close();

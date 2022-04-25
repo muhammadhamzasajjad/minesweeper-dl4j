@@ -4,10 +4,10 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Scanner;
 
-import org.bytedeco.librealsense.intrinsics;
 import org.deeplearning4j.nn.api.OptimizationAlgorithm;
 import org.deeplearning4j.nn.conf.BackpropType;
 import org.deeplearning4j.nn.conf.ConvolutionMode;
@@ -16,29 +16,24 @@ import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.Updater;
 import org.deeplearning4j.nn.conf.inputs.InputType;
 import org.deeplearning4j.nn.conf.layers.*;
-import org.deeplearning4j.nn.conf.ocnn.OCNNOutputLayer;
+import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.deeplearning4j.nn.transferlearning.FineTuneConfiguration;
+import org.deeplearning4j.nn.transferlearning.TransferLearning;
 import org.deeplearning4j.nn.weights.WeightInit;
-import org.jfree.chart.renderer.category.StatisticalBarRenderer;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.api.ndarray.INDArray;
-import org.nd4j.linalg.api.ops.LossFunction;
-import org.nd4j.linalg.api.ops.impl.layers.convolution.Conv2D;
-import org.nd4j.linalg.api.ops.impl.layers.convolution.Conv2D.Conv2DBuilder;
-import org.nd4j.linalg.api.ops.impl.layers.convolution.config.PaddingMode;
 import org.nd4j.linalg.factory.Nd4j;
-import org.nd4j.linalg.indexing.INDArrayIndex;
 import org.nd4j.linalg.indexing.NDArrayIndex;
 
 import Game.GameStatus;
 import Game.MinesweeperGame;
 import Game.Pair;
 
+import org.nd4j.linalg.learning.config.AdaGrad;
 import org.nd4j.linalg.learning.config.Adam;
 import org.nd4j.linalg.learning.config.Sgd;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
-import org.nd4j.nativeblas.Nd4jCpu.conv2d;
-import org.nd4j.nativeblas.Nd4jCpu.static_bidirectional_rnn;
 
 public class Program {
     static Scanner in;
@@ -49,16 +44,16 @@ public class Program {
 	static int boardMines = 10;
 	
     static int currentSample = 0;
-    static int numSamples = 100;
+    static int numSamples = 200;
     static long movesMade = 0;
-    static int epochs = 4;
+    static int epochs = 1;
     static long playedGames = 0;
     static INDArray features, labels;
     static double[][][][] featuresArray;
     static double[][][][] labelsArray;
     
     //saving data
-    static int gamesInSeries = 500;
+    static int gamesInSeries = 1000;
     static int gamesWonInSeries = 0;
     static long movesInSeries = 0;
     static long correctMovesInSeries = 0;
@@ -73,7 +68,12 @@ public class Program {
         System.out.println("welcome to minesweepers");
         //playGameCLI(9, 9, 10);
         
-        ConfigNetwork();
+        featuresArray = new double[numSamples][nChannels][boardRows][boardCols];
+    	labelsArray = new double[numSamples][1][boardRows][boardRows];
+        
+        loadNetworkFromFile();
+        //in.next();
+        //ConfigNetwork();
         train();
 
         //trainNetwork();
@@ -83,66 +83,102 @@ public class Program {
         //in.close();
     }
     
+    public static void loadNetworkFromFile() {
+    	try {
+			model = MultiLayerNetwork.load( new File("model.txt"), true);
+			
+			// transfer learning to a new network with 
+			/*long seed = 1234;
+			FineTuneConfiguration fineTuneConf = new FineTuneConfiguration.Builder()
+					.seed(seed)
+	                .weightInit(WeightInit.XAVIER)
+	                .updater(new Adam())
+	                .activation(Activation.RELU)
+		            .build();
+			//System.out.println(model.getnLayers());
+			model=new TransferLearning.Builder(model)
+					.fineTuneConfiguration(fineTuneConf)
+		            .removeOutputLayer()
+		            .addLayer(new CnnLossLayer.Builder(LossFunctions.LossFunction.MSE)
+		            		.build())
+		            .build();*/
+			System.out.println(model.summary());
+			//String var = model.
+			//lastLayer.lossFunction(LossFunctions.LossFunction.MEAN_ABSOLUTE_ERROR);
+			
+			
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			System.err.println("could not find model file");
+		}
+    }
+    
     public static void ConfigNetwork() {
     	long seed = 1234;
     	
     	/*features = Nd4j.zeros(numSamples, nChannels, boardRows, boardCols); // TO FIX
     	labels = Nd4j.zeros(numSamples, boardRows * boardCols);*/
     	
-    	featuresArray = new double[numSamples][nChannels][boardRows][boardCols];
-    	labelsArray = new double[numSamples][1][boardRows + 4][boardRows + 4];
-    	
     	//System.out.println(features.toString());
     	MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
                 .seed(seed)
-                //.l2(0.0001)
+                //.l2(0.00001)
                 .weightInit(WeightInit.XAVIER)
-                .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-                .updater(new Adam(0.0001))
+                //.optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+                //.updater(new Sgd(0.001))
+                .updater(new Adam())
+                //.updater(new )
+                //.
+                //.l2(0.00001)
                 //.updater(Updater.ADAM)
                 .activation(Activation.RELU)
                 
                 .list()
                 //.layer(new ZeroPaddingLayer.Builder(5,5)
                 //		.build())
-                .layer(new ConvolutionLayer.Builder(5, 5).convolutionMode(ConvolutionMode.Same)
+                .layer(new ConvolutionLayer.Builder(3, 3).convolutionMode(ConvolutionMode.Same)
                         //nIn and nOut specify depth. nIn here is the nChannels and nOut is the number of filters to be applied
                 		.stride(1,1)
                 		.nIn(nChannels)
-                        .nOut(24)
-                        //.activation(Activation.RELU)
+                        .nOut(15)
+                        
                         .build())
-                //.layer(new ZeroPaddingLayer.Builder(1,1)
-                //		.build())
-                .layer(new ConvolutionLayer.Builder(5, 5).convolutionMode(ConvolutionMode.Same)
-                        //Note that nIn need not be specified in later layers
-                        .nIn(24)
-                		.nOut(16)
+                .layer(new ConvolutionLayer.Builder(3, 3).convolutionMode(ConvolutionMode.Same)
+                        .nIn(15)
+                        .activation(Activation.RELU)
+                		.nOut(20)
                         .stride(1,1)
-                        //.activation(Activation.SIGMOID)
                         .build())
-                //.layer(new ZeroPaddingLayer.Builder(1,1)
-                //		.build())
-                .layer(new ConvolutionLayer.Builder(5, 5).convolutionMode(ConvolutionMode.Same)
+                .layer(new ConvolutionLayer.Builder(3, 3).convolutionMode(ConvolutionMode.Same)
+                        .nIn(20)
+                        .activation(Activation.RELU)
+                		.nOut(10)
+                        .stride(1,1)
+                        .build())
+                /*.layer(new ConvolutionLayer.Builder(3, 3).convolutionMode(ConvolutionMode.Same)
+                        .nIn(50)
+                        .activation(Activation.RELU)
+                		.nOut(50)
+                        .stride(1,1)
+                        .build())
+                .layer(new ConvolutionLayer.Builder(1, 1).convolutionMode(ConvolutionMode.Same)
                         //Note that nIn need not be specified in later layers
                 		.stride(1,1)
-                		.nIn(16)
-                		.nOut(64)
-                        //.activation(Activation.SIGMOID)
-                        .build())
-                /*.layer(new ZeroPaddingLayer.Builder(1,1)
-                		.build())
-                .layer(new ConvolutionLayer.Builder(3, 3)
+                		.nIn(50)
+                		.activation(Activation.RELU)
+                		.nOut(50)
+                        .build())*/
+                /*.layer(new ConvolutionLayer.Builder(1, 1).convolutionMode(ConvolutionMode.Same)
                         //Note that nIn need not be specified in later layers
-                		//.stride(1,1)
+                		.stride(1,1)
+                		.nIn(64)
                 		.nOut(64)
-                        .activation(Activation.RELU)
                         .build())*/
                 .layer(new ConvolutionLayer.Builder(1, 1)
                         //Note that nIn need not be specified in later layers
                 		.stride(1,1)
+                		.activation(Activation.RELU)
                 		.nOut(1)
-                        //.activation(Activation.SIGMOID)
                         .build())
                 
                 .layer(new CnnLossLayer.Builder(LossFunctions.LossFunction.MSE)
@@ -154,21 +190,18 @@ public class Program {
                         .nOut(boardRows * boardCols)
                         .activation(Activation.SIGMOID)
                         .build())*/
-                .setInputType(InputType.convolutional(boardCols,boardCols,nChannels))
+                .setInputType(InputType.convolutional(boardRows,boardCols,nChannels))
                 .backpropType(BackpropType.Standard)
                 .build();
     	
     	model = new MultiLayerNetwork(conf);
         model.init();
+        System.out.println(model.summary());
+        System.out.println(model.getUpdater().getClass().getName());
         
     }
     
     public static void train() {
-    	/*for(int i = 0; i < 10;i++) {
-    		
-    		model.fit(features, labels);
-    		System.out.println("epoch " + (i + 1));
-    	}*/
     	while(true) {
     		trainGame();
     	}
@@ -176,7 +209,7 @@ public class Program {
     
     public static void trainGame() {
     	MinesweeperGame game = new MinesweeperGame(boardRows, boardCols, boardMines);
-        game.loadGame(1, 2);
+        game.loadGame(0, 0);
         GameStatus status;
         
         while((status = game.getGameStatus()) == GameStatus.PLAYING) {
@@ -186,9 +219,11 @@ public class Program {
         }
         
         if(playedGames % 100 == 0) {
-        	System.out.println("played games " + playedGames);
+        	System.out.println("played games " + playedGames + " " + LocalDateTime.now());
         	System.out.println("Moves Made " + movesMade);
         	movesMade = 0;
+        	
+        	System.gc(); //add this for running tests
         }
 
         if(status != GameStatus.PLAYING) {
@@ -198,7 +233,7 @@ public class Program {
             if(playedGames % gamesInSeries == 0) {
             	saveStatsToFile();
             	
-            	saveModelToFile();
+            	//saveModelToFile();  //Comment this for running tests
             }
             
             /*if (status == GameStatus.LOST) {
@@ -206,7 +241,7 @@ public class Program {
 	        }
 	        else */if (status == GameStatus.WON) {
 	        	gamesWonInSeries++;
-	            System.out.println("You WON :) played: " + playedGames );
+	            System.out.println("----You WON :) played: " + playedGames );
 	            //in.nextLine();
 	        }
         }
@@ -214,28 +249,32 @@ public class Program {
     
     public static void makeMove(MinesweeperGame game) {
     	int[][] state = game.getGameState();
-    	int[][] minesMatrix = game.getMineMatrix();
+    	int[][] minesMatrix = game.getMineMatrix(); //comment this for running tests
     	
     	/*System.out.println(game.toStringGameState());
+    	System.out.println(Arrays.deepToString(state));
     	System.out.println(game.toStringBoardValues());*/
     	
     	encodeState(state, featuresArray[currentSample]);
-    	//encodeOutputFlat(minesMatrix, labelsArray[currentSample]);
-    	labelsArray[currentSample][0] = copyAsDoubleWithPadding(minesMatrix);
+    	
+    	//labelsArray[currentSample][0] = copyAsDoubleWithPadding(minesMatrix); //comment this for running tests
     	double[][][][] inputArray = new double[1][][][];
     	inputArray[0] = featuresArray[currentSample];
-    	incrementSampleSize();
+    	//incrementSampleSize();  //comment this for running tests
     	
     	INDArray input = Nd4j.create(inputArray);
     	INDArray output = model.output(input);
-    	
     	/*System.out.println("Output:\n\n" + output.toString());
     	in.nextLine();*/
     	
     	//double[][] outputArray = decodeOutput(output.toDoubleMatrix()[0]);
     	double[][] outputArray = output.get(NDArrayIndex.point(0)).get(NDArrayIndex.point(0)).toDoubleMatrix();
-    	//outputArray = removePadding(outputArray);
-    	Pair bestMove = findMinProbabililtyBorder(outputArray, game.getBordersCellsArray());
+    	//Pair bestMove = findMinProbabililtyBorder(outputArray, game.getBordersCellsArray());
+    	Pair bestMove = findMinProbabililtyCell(outputArray, state); // allow guesses
+    	
+    	/*System.out.println("Best move: " + bestMove.getRow() + ", " + bestMove.getCol());
+    	in.nextLine();*/
+    	
     	game.unCover(bestMove.getRow(), bestMove.getCol());
     	movesInSeries++;
     }
@@ -258,6 +297,26 @@ public class Program {
     		currentSample = 0;
     		System.gc();
     	}
+    }
+    
+    public static Pair findMinProbabililtyCell(double[][] probabilityArray, int[][] state) {
+    	double minProbability = 2.0;
+    	Pair bestPosition = null;
+    	for (int i = 0; i < probabilityArray.length; i++) {
+    		for (int j = 0; j < probabilityArray[i].length; j++) {
+    			if (probabilityArray[i][j] < minProbability && state[i][j] == MinesweeperGame.COVERED_CELL) {
+    				minProbability = probabilityArray[i][j];
+    				bestPosition = new Pair(i, j);
+    			}
+    		}
+    	}
+    	
+    	if(bestPosition == null) {
+    		System.err.println("Error: Probability > 1 calculated by neural net");
+    		in.nextLine();
+    	}
+    	
+    	return bestPosition;
     }
     
     public static Pair findMinProbabililtyBorder(double[][] probabilityArray, Pair[] borderCells) {
@@ -286,6 +345,14 @@ public class Program {
 		}
     	
     	setMatrixMatch(state, MinesweeperGame.COVERED_CELL, inputArray[9]);
+    	
+    	// Channel indicating the board size
+    	/*for (int i = 0; i < boardRows; i++) {
+    		for (int j = 0; j < boardCols; j++) {
+    			inputArray[10][i][j] = 1;
+				
+			}
+		}*/
     	
     	//print3Darray(inputArray);
     	
@@ -378,7 +445,8 @@ public class Program {
     private static void saveStatsToFile() {
     	try {
 			BufferedWriter statsFile = new BufferedWriter(new FileWriter(statsFileName, true));
-			String record = playedGames + ";" + gamesWonInSeries + ";" + movesInSeries + ";" + correctMovesInSeries + ";" + cellsToUnCoverInSeries + ";";
+			String record = playedGames + ";" + gamesWonInSeries + ";" + movesInSeries + ";" + cellsToUnCoverInSeries + ";" + LocalDateTime.now() + ";";
+			System.out.println(record);
 			statsFile.write(record);
 			statsFile.newLine();
 			statsFile.close();
@@ -427,7 +495,7 @@ public class Program {
 
         GameStatus status;
         while((status = game.getGameStatus()) == GameStatus.PLAYING) {
-            System.out.println(game.toStringBoardValues());
+            //System.out.println(game.toStringBoardValues());
             System.out.println(game.toStringGameState());
             //System.out.print("Empty boxes left: " + game.getBoxesToUncover());
 
