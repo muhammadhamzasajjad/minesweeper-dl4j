@@ -1,0 +1,7 @@
+In 1 sets of 100000 trys (100000 games total):
+  Mean wins: 32812.0/100000 (33%)
+  Standard Deviation: 0.0
+  Standard Error of the Mean: 0.0
+  Mean time: 6.780000000000005E-4 sec
+  Standard Deviation: 0.0017350262245856714
+  Standard Error of the Mean: 5.486634669813554E-5

@@ -1,0 +1,72 @@
+//from cnnlearner15
+//beginner mode;first move is safe;; 100 sample size; guesses allowed
+//number of epochs is 1
+// experimented running time 54s for 1,000 games. See games 7,000 to 10,000 in stats.
+MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
+                .seed(seed)
+                //.l2(0.00001)
+                .weightInit(WeightInit.XAVIER)
+                //.optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+                .updater(new Adam())
+                .activation(Activation.RELU)
+                
+               .list()
+                //.layer(new ZeroPaddingLayer.Builder(5,5)
+                //		.build())
+                .layer(new ConvolutionLayer.Builder(3, 3).convolutionMode(ConvolutionMode.Same)
+                        //nIn and nOut specify depth. nIn here is the nChannels and nOut is the number of filters to be applied
+                		.stride(1,1)
+                		.nIn(nChannels)
+                        .nOut(32)
+                        
+                        .build())
+                .layer(new ConvolutionLayer.Builder(3, 3).convolutionMode(ConvolutionMode.Same)
+                        .nIn(32)
+                        .activation(Activation.RELU)
+                		.nOut(32)
+                        .stride(1,1)
+                        .build())
+                .layer(new ConvolutionLayer.Builder(3, 3).convolutionMode(ConvolutionMode.Same)
+                        .nIn(32)
+                        .activation(Activation.RELU)
+                		.nOut(32)
+                        .stride(1,1)
+                        .build())
+                .layer(new ConvolutionLayer.Builder(3, 3).convolutionMode(ConvolutionMode.Same)
+                        .nIn(32)
+                        .activation(Activation.RELU)
+                		.nOut(32)
+                        .stride(1,1)
+                        .build())
+                .layer(new ConvolutionLayer.Builder(1, 1).convolutionMode(ConvolutionMode.Same)
+                        //Note that nIn need not be specified in later layers
+                		.stride(1,1)
+                		.nIn(32)
+                		.activation(Activation.RELU)
+                		.nOut(64)
+                        .build())
+                /*.layer(new ConvolutionLayer.Builder(1, 1).convolutionMode(ConvolutionMode.Same)
+                        //Note that nIn need not be specified in later layers
+                		.stride(1,1)
+                		.nIn(64)
+                		.nOut(64)
+                        .build())*/
+                .layer(new ConvolutionLayer.Builder(1, 1)
+                        //Note that nIn need not be specified in later layers
+                		.stride(1,1)
+                		.activation(Activation.RELU)
+                		.nOut(1)
+                        .build())
+                
+                .layer(new CnnLossLayer.Builder(LossFunctions.LossFunction.MSE)
+                		//.activation(Activation.SIGMOID)
+                		.build())
+                /*.layer(new DenseLayer.Builder().activation(Activation.SIGMOID)
+                        .nOut(boardRows * boardCols).build())
+                .layer(new OutputLayer.Builder(LossFunctions.LossFunction.MSE)
+                        .nOut(boardRows * boardCols)
+                        .activation(Activation.SIGMOID)
+                        .build())*/
+                .setInputType(InputType.convolutional(boardRows,boardCols,nChannels))
+                .backpropType(BackpropType.Standard)
+                .build();

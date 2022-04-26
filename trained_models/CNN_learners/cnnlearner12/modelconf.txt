@@ -1,0 +1,40 @@
+beginner mode; 100 sample size; guesses not allowed; 11 channels
+from 290000: guesses allowed, number of epochs reduced to 1 from 4.
+MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
+                .seed(seed)
+                .weightInit(WeightInit.XAVIER)
+                .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
+                .updater(new Adam(0.0001))
+                .activation(Activation.RELU)
+                
+                .list()
+                .layer(new ConvolutionLayer.Builder(5, 5).convolutionMode(ConvolutionMode.Same)
+                        //nIn and nOut specify depth. nIn here is the nChannels and nOut is the number of filters to be applied
+                		.stride(1,1)
+                		.nIn(nChannels)
+                        .nOut(25)
+                        .build())
+                .layer(new ConvolutionLayer.Builder(3, 3).convolutionMode(ConvolutionMode.Same)
+                        //Note that nIn need not be specified in later layers
+                        .nIn(25)
+                		.nOut(32)
+                        .stride(1,1)
+                        .build())
+                .layer(new ConvolutionLayer.Builder(1, 1).convolutionMode(ConvolutionMode.Same)
+                        //Note that nIn need not be specified in later layers
+                		.stride(1,1)
+                		.nIn(32)
+                		.nOut(64)
+                        .build())
+                .layer(new ConvolutionLayer.Builder(1, 1)
+                        //Note that nIn need not be specified in later layers
+                		.stride(1,1)
+                		.nOut(1)
+                        .build())
+                
+                .layer(new CnnLossLayer.Builder(LossFunctions.LossFunction.MSE)
+
+                		.build())
+                .setInputType(InputType.convolutional(boardRows,boardCols,nChannels))
+                .backpropType(BackpropType.Standard)
+                .build();
