@@ -42,7 +42,7 @@ public class CNNLearner {
     double[][][][] featuresArray;
     double[][][][] labelsArray;
     
-    //saving data
+    // for saving data
     int gamesInSeries = 1000;
     int gamesWonInSeries = 0;
     long movesInSeries = 0;
@@ -54,23 +54,21 @@ public class CNNLearner {
     MultiLayerNetwork model;
     
     public CNNLearner(){
-    	//in = new Scanner(System.in);
-        System.out.println("welcome to minesweepers");
-        //playGameCLI(9, 9, 10);
         
         featuresArray = new double[numSamples][nChannels][boardRows][boardCols];
     	labelsArray = new double[numSamples][1][boardRows][boardRows];
         
-        //loadNetworkFromFile();
+        //loadNetworkFromFile(); //use this line this to load an existing network
         //in.next();
-        ConfigNetwork();
+        ConfigNetwork();	// use this to configure a new network
     }
     
     public void loadNetworkFromFile() {
     	try {
+    		// save the model to be loaded in the model.txt file
 			model = MultiLayerNetwork.load( new File("model.txt"), true);
 			
-			// transfer learning to a new network with 
+			// transfer learning to a new network only used when necessary
 			/*long seed = 1234;
 			FineTuneConfiguration fineTuneConf = new FineTuneConfiguration.Builder()
 					.seed(seed)
@@ -98,9 +96,6 @@ public class CNNLearner {
     
     public void ConfigNetwork() {
     	long seed = 1234;
-    	
-    	/*features = Nd4j.zeros(numSamples, nChannels, boardRows, boardCols); // TO FIX
-    	labels = Nd4j.zeros(numSamples, boardRows * boardCols);*/
     	
     	//System.out.println(features.toString());
     	MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
@@ -160,14 +155,8 @@ public class CNNLearner {
                         .build())
                 
                 .layer(new CnnLossLayer.Builder(LossFunctions.LossFunction.MSE)
-                		//.activation(Activation.SIGMOID)
+                		//.activation(Activation.RELU)
                 		.build())
-                /*.layer(new DenseLayer.Builder().activation(Activation.SIGMOID)
-                        .nOut(boardRows * boardCols).build())
-                .layer(new OutputLayer.Builder(LossFunctions.LossFunction.MSE)
-                        .nOut(boardRows * boardCols)
-                        .activation(Activation.SIGMOID)
-                        .build())*/
                 .setInputType(InputType.convolutional(boardRows,boardCols,nChannels))
                 .backpropType(BackpropType.Standard)
                 .build();
@@ -245,7 +234,7 @@ public class CNNLearner {
     	
     	//double[][] outputArray = decodeOutput(output.toDoubleMatrix()[0]);
     	double[][] outputArray = output.get(NDArrayIndex.point(0)).get(NDArrayIndex.point(0)).toDoubleMatrix();
-    	//Pair bestMove = findMinProbabililtyBorder(outputArray, game.getBordersCellsArray());
+    	//Pair bestMove = findMinProbabililtyBorder(outputArray, game.getBordersCellsArray());  // no guessing
     	Pair bestMove = findMinProbabililtyCell(outputArray, state); // allow guesses
     	
     	game.unCover(bestMove.getRow(), bestMove.getCol());
@@ -412,7 +401,7 @@ public class CNNLearner {
     	try {
 			model.save(new File(modelFileName), true);
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
+			
 			e.printStackTrace();
 		}
     }

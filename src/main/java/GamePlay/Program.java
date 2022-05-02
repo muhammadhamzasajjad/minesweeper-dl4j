@@ -12,12 +12,14 @@ public class Program {
     public static void main(String[] args) {
         in = new Scanner(System.in);
         System.out.println("welcome to minesweepers");
-        //playGameCLI(9, 9, 10);
         
+        //playGameCLI(9, 9, 10);	// use this line to play the game using CLI
+        
+        // Use the following two lines to create a CNN learner
         CNNLearner learner = new CNNLearner();
         learner.train();
 
-        //trainNetwork();
+        // Use the following two lines to create an MLP learner
         /*FeedForwardNNLearner learner = new FeedForwardNNLearner();
         learner.trainNetwork();*/
 

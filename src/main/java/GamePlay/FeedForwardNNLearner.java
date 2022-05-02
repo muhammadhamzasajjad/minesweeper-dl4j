@@ -52,8 +52,8 @@ public class FeedForwardNNLearner {
         features = Nd4j.zeros(numSamples, numInputs);
         labels = Nd4j.zeros(numSamples, 1);
 
-        configNetwork();
-        //loadNetworkFromFile();
+        configNetwork();	//use this line this to load an existing network
+        //loadNetworkFromFile();	// use this to configure a new network
         
         gamesInSeries = 1000;
         gamesWonInSeries = 0;
@@ -68,6 +68,7 @@ public class FeedForwardNNLearner {
     
     public void loadNetworkFromFile() {
     	try {
+    		// save the model to be loaded in the model.txt file
 			model = MultiLayerNetwork.load( new File("model.txt"), true);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
