@@ -308,14 +308,6 @@ public class CNNLearner {
     	
     	setMatrixMatch(state, MinesweeperGame.COVERED_CELL, inputArray[9]);
     	
-    	// Channel indicating the board size
-    	/*for (int i = 0; i < boardRows; i++) {
-    		for (int j = 0; j < boardCols; j++) {
-    			inputArray[10][i][j] = 1;
-				
-			}
-		}*/
-    	
     }
     
     public void setMatrixMatch(int[][] state, int matchVal, double[][] matchMatrix) {
