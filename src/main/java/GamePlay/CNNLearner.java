@@ -113,31 +113,31 @@ public class CNNLearner {
                         //nIn and nOut specify depth. nIn here is the nChannels and nOut is the number of filters to be applied
                 		.stride(1,1)
                 		.nIn(nChannels)
-                        .nOut(32)
+                        .nOut(25)
                         
                         .build())
                 .layer(new ConvolutionLayer.Builder(3, 3).convolutionMode(ConvolutionMode.Same)
-                        .nIn(32)
+                        .nIn(30)
                         .activation(Activation.RELU)
-                		.nOut(32)
+                		.nOut(30)
                         .stride(1,1)
                         .build())
                 .layer(new ConvolutionLayer.Builder(3, 3).convolutionMode(ConvolutionMode.Same)
-                        .nIn(32)
+                        .nIn(30)
                         .activation(Activation.RELU)
-                		.nOut(32)
+                		.nOut(35)
                         .stride(1,1)
                         .build())
                 .layer(new ConvolutionLayer.Builder(3, 3).convolutionMode(ConvolutionMode.Same)
-                        .nIn(32)
+                        .nIn(35)
                         .activation(Activation.RELU)
-                		.nOut(32)
+                		.nOut(30)
                         .stride(1,1)
                         .build())
                 .layer(new ConvolutionLayer.Builder(1, 1).convolutionMode(ConvolutionMode.Same)
                         //Note that nIn need not be specified in later layers
                 		.stride(1,1)
-                		.nIn(32)
+                		.nIn(30)
                 		.activation(Activation.RELU)
                 		.nOut(64)
                         .build())
@@ -316,8 +316,6 @@ public class CNNLearner {
 			}
 		}*/
     	
-    	//print3Darray(inputArray);
-    	
     }
     
     public void setMatrixMatch(int[][] state, int matchVal, double[][] matchMatrix) {
@@ -384,7 +382,6 @@ public class CNNLearner {
 			statsFile.newLine();
 			statsFile.close();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
     	
